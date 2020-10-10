@@ -1,0 +1,119 @@
+import numpy as np
+import gym
+import random ##To generate Random Numbers
+import matplotlib.pyplot as plt
+
+## Creating Taxi Environment ##
+env = gym.make("Taxi-v3")
+state = env.encode(3,1,2,0)
+print("State:", state)
+env.s = state
+env.render()
+
+## Create Q-Table and Initiallize it ## Now we will create Q-table, to know how much rows(states) and columns(actions) we need.
+## we need to calculate the action_size and state_size 
+## open gym give us facility to do that with env.action_space.n and env.observation_space.n 
+
+action_size = env.action_space.n
+print("Action Space ", action_size)
+
+
+state_size = env.observation_space.n
+print("State Size", state_size)
+
+### Creating Q-Table ###
+
+qtable = np.zeros((state_size, action_size))
+print(qtable)
+
+### Creating HyperParameters ###
+### HyperParameters are variables that we use to tune the training of our Algorithm.
+
+total_episodes = 50000      ##Total Training Episodes
+total_test_episodes = 100   ##Total Testing Episodes
+max_step = 99               ##Maximum steps an agent can take per episode.
+
+
+learning_rate = 0.7         ##Learning Rate
+gamma = 0.618               ##Discounting rate
+
+
+## Exploration Parameters
+epsilon = 1.0               ##Exploration Rate
+max_epsilon = 1.0           ##Exploration Probability at start
+min_epsilon = 0.01          ##Minimum Exploration Rate 
+decay_rate = 0.01           ##Exponential decay_rate for exploration probability.
+
+
+##At start we need to have Maximum Exploration because we know nothing about our environement but as trainung pass
+##we need minimum exploration and maximum exploitation.
+
+## The Q-Learning Algorithm 
+## For life or until learning is stopped
+
+for episode in range(total_episodes):
+    ## Reset the Environment
+    penalties = 0
+    state = env.reset()
+    step = 0
+    done = False
+    for step in range(max_step):
+        
+        
+        # Choose an Action a in the current world state(a)
+        # First We Randomize an number
+        exp_exp_tradeoff = random.uniform(0,1)
+        ## if this number is greater than epsilon --> exploitation (taking the biggest Q-Value for this state)
+        if exp_exp_tradeoff > epsilon:
+            action = np.argmax(qtable[state,:])
+        else:
+            action = env.action_space.sample()
+        ## Take the action (a) and observe the state(s') and reward(r)
+        new_state, reward, done, info = env.step(action)
+      
+        ## Update Q(s, a) := Q(s,a) + lr(R(s,a) + gamma * max Q(s',a') - Q(s,a))
+        qtable[state, action] = qtable[state , action] + learning_rate * (reward + gamma * np.max(qtable[new_state,:]) - qtable[state, action])
+    
+    
+        state = new_state
+    
+        ##If done : finish episode 
+        if done == True:
+            break
+    episode += 1
+
+    ##Reduce Epsilon (Because we need less and less Exploration)
+    epsilon = min_epsilon + (max_epsilon - min_epsilon)*np.exp(-decay_rate*episode)
+print(qtable[328])
+    
+
+## Our Agent will Play Taxi in this Cell ##
+env.reset()
+total_penalties = 0
+rewards = []
+for episode in range(total_test_episodes):
+    state = env.reset()
+    step = 0
+    penalties = 0
+    done = False
+    total_rewards = 0
+    print("------->*********------>")
+    print("Episodes:", episode)
+    for step in range(max_step):
+        env.render()
+        ## Take the Action(index) that have the maximum expected future reward given that state.
+        action = np.argmax(qtable[state,:])
+        new_state, reward, done, info = env.step(action)
+        if reward == -10:
+            penalties += 1
+        total_rewards += reward
+        
+        if done:
+            rewards.append(total_rewards)
+            print("Score:", total_rewards)
+            break
+        total_penalties += penalties
+        state = new_state
+env.close()
+print("Score Over Time:" , str(sum(rewards) / total_test_episodes))
+print("Total Penalties per Episode:", total_penalties / total_test_episodes)
